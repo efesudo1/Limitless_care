@@ -1,0 +1,85 @@
+Summary,Issue Type,Priority,Assignee,Labels,Components,Epic Link,Story Points,Description
+"Faz 1 - Altyapı & Ortam Kurulumu",Epic,Highest,Nehir Bozbey,faz1,DevOps,,,"Hafta 1-2: Docker, CI/CD, Prisma şema, RN/Web iskelet."
+"Faz 2 - Kimlik Doğrulama & Yetkilendirme",Epic,Highest,Ahmet Efe,faz2,Backend,,,"Hafta 3-4: Auth API, doktor onayı + e-posta ön atama, SSL/TLS, register/login ekranları."
+"Faz 3 - Çekirdek Modüller & API'ler",Epic,Highest,Ahmet Efe,faz3,Backend,,,"Hafta 5-8: Catalog seed, doctor API, caregiver API, owner web, doctor mobile stack, monitoring."
+"Faz 4 - Raporlama, Bildirim & Caregiver Mobile",Epic,High,Ahmet Efe,faz4,Backend,,,"Hafta 9-11: PDF/Excel rapor, caregiver mobile stack, local notifications, severity chart."
+"Faz 5 - Test, Erişilebilirlik & Optimizasyon",Epic,High,Nehir Bozbey,faz5,QA,,,"Hafta 12-13: API test, güvenlik & KVKK, mobile WCAG + sesli komut + Siri."
+"Faz 6 - Deployment & Lansman",Epic,Highest,Nehir Bozbey,faz6,DevOps,,,"Hafta 14: Production deploy, API dokümantasyonu, iOS/Android build."
+"G-01: Docker Compose Ortamı (PostgreSQL)",Task,Highest,Nehir Bozbey,faz1 devops backend,DevOps,Faz 1 - Altyapı & Ortam Kurulumu,3,"İŞ TANIMI: docker-compose.yml dosyası yazılır; postgres:16-alpine container'ı, named volume (pgdata), healthcheck ve port mapping (5432) ile yapılandırılır. .env.example dosyası repo köküne eklenir; DATABASE_URL, JWT_*, OWNER_*, REPORTS_DIR değişkenleri tanımlanır.
+
+KABUL KRİTERİ: docker compose up -d postgres ile DB ayağa kalkar; docker exec ... pg_isready healthy döner; psql ile bağlanılabilir; volume verisi container restart sonrası korunur."
+"G-02: CI/CD Pipeline (GitHub Actions)",Task,Highest,Nehir Bozbey,faz1 devops ci,DevOps,Faz 1 - Altyapı & Ortam Kurulumu,5,"İŞ TANIMI: main ve develop için iki ayrı workflow yazılır. Her PR'da: backend tsc --noEmit, mobile tsc --noEmit, admin-web tsc -b, prisma validate. PR'lar başarısız job ile merge edilemez. Backend için Docker image build & push (GHCR) adımı eklenir.
+
+KABUL KRİTERİ: Her PR'da 4 ayrı job (backend/mobile/admin-web/docker) yeşil yanıyor; başarısız job merge'ü engelliyor; image GHCR'da etiketli olarak yer alıyor."
+"G-03: Prisma Şema Tasarımı ve İlk Migrasyon",Task,Highest,Ahmet Efe,faz1 backend db,Backend,Faz 1 - Altyapı & Ortam Kurulumu,8,"İŞ TANIMI: PostgreSQL üzerinde Prisma modelleri yazılır: User, DoctorProfile, CaregiverProfile, PatientMetric, Disease, Symptom, Medication, PatientDisease, SymptomLog, Prescription, DoseEvent, Report. İlişkiler ve unique constraint'ler (User.email, DoctorProfile.diplomaNumber, DoseEvent[prescriptionId, scheduledAt]) tanımlanır. npx prisma migrate dev --name init ile ilk migrasyon SQL'i üretilir.
+
+KABUL KRİTERİ: prisma validate temiz; ilk migration prisma/migrations/ altında commit edildi; prisma generate ile typesafe client oluşturuluyor; her model için index'ler (caregiverEmail, caregiverId, loggedAt) tanımlı."
+"G-04: React Native (Bare) Proje İskeleti & Tema Sistemi",Task,High,Abdussamed Ateş,faz1 mobile frontend,Mobile,Faz 1 - Altyapı & Ortam Kurulumu,5,"İŞ TANIMI: npx @react-native-community/cli init ile bare RN 0.85 projesi oluşturulur. src/{api,auth,components,navigation,screens,theme,notifications,voice,siri} dizin yapısı kurulur. WCAG AA renk paleti, spacing, radius, typography, TOUCH_MIN=44 token'ları src/theme/index.ts içinde tanımlanır. Ortak bileşenler: Screen, PrimaryButton, TextField, Heading, Card, ErrorBanner. Ayrıca admin-web/ Vite projesi iskelesi kurulur.
+
+KABUL KRİTERİ: cd mobile && npx tsc --noEmit exit 0; cd admin-web && npx tsc -b exit 0; tema renk kontrastları 4.5:1 üstünde."
+"G-05: Auth API (Register, Login, Refresh, Role Guard)",Task,Highest,Ahmet Efe,faz2 backend auth,Backend,Faz 2 - Kimlik Doğrulama & Yetkilendirme,8,"İŞ TANIMI: POST /auth/register/doctor, POST /auth/register/caregiver, POST /auth/login, POST /auth/refresh endpoint'leri yazılır. Şifreler bcryptjs (10 round) ile hash'lenir. JWT access (15 dk) + refresh (30 g). authenticate middleware token'ı header'dan veya ?t= query param'dan okur. requireRole(...) ve requireApprovedDoctor middleware'leri eklenir.
+
+KABUL KRİTERİ: Postman koleksiyonu ile dört endpoint test edilir; yanlış role ile korumalı rotaya 403 döner; expired access token sonrası refresh ile yeni token alınır; doktor PENDING ise /doctor/* endpoint'leri 403."
+"G-06 ⭐ MILESTONE: Doktor Onay + E-posta Üzerinden Ön Atama Akışı",Task,Highest,Ahmet Efe,faz2 backend milestone kvkk,Backend,Faz 2 - Kimlik Doğrulama & Yetkilendirme,13,"İŞ TANIMI: Üç parçalı kritik akış:
+1. Doktor onayı: POST /owner/doctors/:id/approve ve /reject ile owner status'ü değiştirir. PENDING/REJECTED ise mobile'da yalnızca onay bekleme ekranı.
+2. E-posta ön atama: POST /doctor/assignments {caregiverEmail, diseaseId} - e-posta normalize edilir, User aranır, varsa ACTIVE/yoksa PENDING_USER kaydı.
+3. Otomatik aktivasyon: Caregiver kayıt olduğunda transaction içinde PENDING_USER atamaları ACTIVE'e çekilir.
+KVKK notu docs/kvkk.md'de belirtilir.
+
+KABUL KRİTERİ: Onay akışı uçtan uca çalışır; PENDING doktor /doctor/patients çağırınca 403; var olmayan e-postaya atama PENDING_USER yaratır; e-posta sahibi kayıt olunca aynı PatientDisease.id ACTIVE'e döner; KVKK notu repoda yer alır."
+"G-07: SSL/TLS + Nginx Reverse Proxy + Güvenlik Header'ları",Task,Highest,Nehir Bozbey,faz2 devops security,DevOps,Faz 2 - Kimlik Doğrulama & Yetkilendirme,5,"İŞ TANIMI: docker-compose.prod.yml'a nginx ve certbot container'ları eklenir. Let's Encrypt sertifikası otomatik yenilenir. Backend Express katmanına helmet, cors, ve rate limit (100 req/15dk) middleware'leri eklenir.
+
+KABUL KRİTERİ: https://api.limitlesscare.app üzerinden geçerli sertifikayla erişilir; HTTP otomatik HTTPS'e yönlenir; nmap taraması yalnızca 80/443 açık; curl -I çıktısında HSTS header'ları görünür."
+"G-08: Welcome / Login / Register Ekranları (Mobile)",Task,High,Abdussamed Ateş,faz2 mobile frontend,Mobile,Faz 2 - Kimlik Doğrulama & Yetkilendirme,8,"İŞ TANIMI: WelcomeScreen, LoginScreen, RegisterDoctorScreen (Ad, E-posta, Şifre, Doktor Kimliği, Unvan, Uzmanlık), RegisterCaregiverScreen (cinsiyet radio + DateField + boy/kilo) yazılır. Token saklama AsyncStorage. Axios interceptor 401'de otomatik refresh + retry yapar.
+
+KABUL KRİTERİ: Üç form da backend ile uçtan uca çalışır; doktor kayıt sonrası 'Onay Bekleniyor' ekranına gider; hatalı şifre screen reader'a duyurulur; expire token sonrası refresh ile devam eder."
+"G-09: Hastalık + Semptom + İlaç Kataloğu Seed",Task,Highest,Ahmet Efe,faz3 backend seed,Backend,Faz 3 - Çekirdek Modüller & API'ler,8,"İŞ TANIMI: backend/prisma/data/ altında 5 kategori: mental_developmental (13), mental_health (9), neuro_physical (12), sensory (2), chronic (10) - toplam 46 hastalık. Her hastalığa DSM-5/ICD-11/Mayo Clinic kaynaklı ≥10 medical-grade semptom Türkçe çevirisi. medications.ts'de ~50 yaygın ilaç. seed.ts idempotent: tekrar çalıştırılırsa duplicate yaratmaz.
+
+KABUL KRİTERİ: npm run db:seed çıktısı: '+46 hastalık, +460 semptom, +51 medications, owner oluşturuldu'; ikinci çalıştırma '+0' döner; her hastalık için minimum 10 semptom var."
+"G-10: Doctor Modülü API (Assignment, Prescription, Custom Catalog, Timeline)",Task,Highest,Ahmet Efe,faz3 backend doctor,Backend,Faz 3 - Çekirdek Modüller & API'ler,8,"İŞ TANIMI: requireApprovedDoctor middleware altında: GET /doctor/me, /patients; POST /assignments, /prescriptions; PATCH /prescriptions/:id; GET /patients/:id/timeline; POST /diseases ve /diseases/:id/symptoms (custom katalog).
+
+KABUL KRİTERİ: Tüm endpoint'ler Postman'de yeşil; başka doktorun reçetesini PATCH 403; custom semptom system hastalığa eklendiğinde caregiver Today'de görür; timeline iki tarafta da aynı veriyi döner."
+"G-11: Caregiver Modülü API (Today, Dose Materialization, Symptom Log, Metrics)",Task,Highest,Ahmet Efe,faz3 backend caregiver,Backend,Faz 3 - Çekirdek Modüller & API'ler,13,"İŞ TANIMI: requireRole(CAREGIVER) altında: GET /me/profile, /diseases, /today, /diseases/:id/history; PATCH /me/metrics; POST /me/symptom-logs; POST /me/dose-events/:id/check.
+
+KRİTİK: today.service.ts içindeki syncDoses(caregiverId) fonksiyonu, scheduleTimes × tarih kombinasyonlarını lazy materialize eder (PENDING upsert). 60 dk önce zamanlanmış ve PENDING olan dozlar otomatik MISSED'e çekilir. Europe/Istanbul timezone (dayjs.tz).
+
+KABUL KRİTERİ: Sabah Today çağrısı bugünkü dose'ları üretir; bir dozu tikleyince delay_minutes doğru hesaplanır (≤30dk = TAKEN_ON_TIME); öğleyi geçmiş işaretlenmemiş dozlar MISSED olur; boy/kilo geçmişi recordedAt sıralı döner."
+"G-12: Owner Web Admin Paneli (Vite + React)",Task,High,Abdussamed Ateş,faz3 frontend admin,Admin Web,Faz 3 - Çekirdek Modüller & API'ler,8,"İŞ TANIMI: admin-web/ projesi: LoginPage (yalnızca OWNER), PendingDoctorsPage (durum filtresi + onayla/reddet), DiseasesPage (sol kolonda hastalık tablosu + form, sağ kolonda semptom yöneticisi), MedicationsPage (CRUD). Vite proxy ile /api → http://localhost:4000.
+
+KABUL KRİTERİ: npm run dev ile localhost:5173 açılır; owner login → 4 sayfa arasında React Router ile dolaşılır; PENDING doktor listesi mobile kayıt sonrası anında görünür; semptom CRUD anında listeyi günceller."
+"G-13: Doctor Mobile Stack",Task,High,Abdussamed Ateş,faz3 mobile doctor,Mobile,Faz 3 - Çekirdek Modüller & API'ler,13,"İŞ TANIMI: Tab navigator (Ana Sayfa / Hastalar / Raporlar / Profil) + Stack: DoctorHomeScreen, PatientListScreen, PatientDetailScreen (SeverityChart dahil), AssignDiseaseScreen, PrescriptionFormScreen (preset saat chip'leri + DateField), CatalogManageScreen. Veri katmanı @tanstack/react-query.
+
+KABUL KRİTERİ: Doktor end-to-end akışı (onaylı doktor → hasta atama → reçete → rapor) mobile'da kesintisiz çalışır; SeverityChart her semptom için yan yana çubuklar gösterir; React Query cache yenilenince UI güncellenir."
+"G-14: Monitoring & Log Yönetimi",Task,Medium,Nehir Bozbey,faz3 devops monitoring,DevOps,Faz 3 - Çekirdek Modüller & API'ler,5,"İŞ TANIMI: Production stack'e Loki + Promtail + Grafana eklenir. Backend Express'te pino logger kurulur (request-id + duration log'lanır). Kritik hata desenleri için Grafana alert (Slack webhook). PostgreSQL slow query log'u Loki'ye akar.
+
+KABUL KRİTERİ: Grafana dashboard'da request rate, p95 latency ve error rate paneli; 5dk'da 5'ten fazla 5xx Slack'e bildirim; Postgres slow query (>200ms) log'lanır."
+"G-15: PDF + Excel Rapor Üreticileri",Task,High,Ahmet Efe,faz4 backend reports,Backend,Faz 4 - Raporlama Bildirim & Caregiver Mobile,8,"İŞ TANIMI: src/modules/reports/ altında: aggregator.ts (severity dağılımı + dose istatistik + uyum yüzdesi), pdf.ts (pdfkit), excel.ts (exceljs - 5 sayfa workbook). POST /reports, GET /reports, GET /reports/:id/download (token query desteği ile mobile Linking).
+
+KABUL KRİTERİ: Doktor PatientDetail'den 30 günlük rapor üretir, ?t=<token> ile tarayıcıda açılır; PDF'te uyum yüzdesi sayısal görünür; Excel'in Reçeteler sayfasında her reçete için ayrı satır."
+"G-16: Caregiver Mobile Stack",Task,High,Abdussamed Ateş,faz4 mobile caregiver,Mobile,Faz 4 - Raporlama Bildirim & Caregiver Mobile,13,"İŞ TANIMI: Tab navigator (Bugün / Profil) + Stack: TodayScreen (FlatList ile dose checkbox + ilerleme barı + hastalık grid), DiseaseDetailScreen (Hafif/Orta/Ağır radio + günün ilaçları), CaregiverProfileScreen, EditMetricsScreen.
+
+KABUL KRİTERİ: Caregiver günlük akışını (semptom işaretle → dozları tikle → kaydet) bir oturumda tamamlar; ölçüm güncelleyince eski değer profilde kalır; React Query optimistic update ile dose tickleme anında dolu daire."
+"G-17: Local Notifications + Native İzinler",Task,High,Nehir Bozbey,faz4 mobile notif native,Mobile,Faz 4 - Raporlama Bildirim & Caregiver Mobile,5,"İŞ TANIMI (Nehir + Abdussamed birlikte): @notifee/react-native ile RepeatFrequency.DAILY + TimestampTrigger. iOS Info.plist: NSMicrophoneUsageDescription, NSSpeechRecognitionUsageDescription, NSSiriUsageDescription, NSUserActivityTypes, UIBackgroundModes. Android Manifest: RECORD_AUDIO, POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, USE_EXACT_ALARM, RECEIVE_BOOT_COMPLETED, VIBRATE.
+
+KABUL KRİTERİ: İlk reçete eklendiğinde 08:00'de bildirim çıkar; cihaz reboot sonrası bildirimler kalıcıdır; iOS Settings → Bildirimler → LimitlessCare girişi görünür."
+"G-18: Reports Mobile Ekranı + Severity Chart",Task,High,Abdussamed Ateş,faz4 mobile reports,Mobile,Faz 4 - Raporlama Bildirim & Caregiver Mobile,5,"İŞ TANIMI: ReportsScreen (mobile, doktor için): hasta×hastalık karelerinde 'PDF Oluştur / Excel Oluştur' butonları; üretilen rapor altta listede 'İndir' linki - Linking.openURL ile imzalı ?t=<token> URL açar. SeverityChart komponenti (custom RN View bar grafiği, kütüphane bağımlılığı yok, screen reader sözel özet).
+
+KABUL KRİTERİ: Tarayıcı PDF/Excel'i token query ile açar (401 yok); SeverityChart boş veride uygun mesaj gösterir; tüm bar'lar relative max'e göre orantılı."
+"G-19: API Entegrasyon + Yük Testleri",Task,High,Ahmet Efe,faz5 backend test,Backend,Faz 5 - Test Erişilebilirlik & Optimizasyon,8,"İŞ TANIMI: vitest + supertest ile auth, doctor, caregiver, reports entegrasyon testleri. Test DB (limitlesscare_test) docker compose'a eklenir; beforeEach ile truncate. k6 script'i 100 eşzamanlı caregiver Today + 50 doctor patients senaryosunu çalıştırır.
+
+KABUL KRİTERİ: Test coverage ≥70%; k6 raporu p95 < 500ms; CI pipeline'da test job yeşil; PR'da coverage düşüşü Codecov uyarısı verir."
+"G-20: Güvenlik Denetimi & KVKK Uyumluluk Raporu",Task,Highest,Nehir Bozbey,faz5 devops security kvkk,DevOps,Faz 5 - Test Erişilebilirlik & Optimizasyon,8,"İŞ TANIMI: OWASP Top 10 manuel kontrol + npm audit + docker scout cves. Owner şifresi rotation prosedürü, JWT secret rotation, pg_dump ile zaman damgalı yedekler s3:limitlesscare-backups/ altına. KVKK için docs/kvkk.md: e-posta ön atamada veri saklama, hasta talebi üzerine silme akışı, retansiyon süreleri.
+
+KABUL KRİTERİ: OWASP checklist tamamlandı; kritik/yüksek bulgular kapatıldı; KVKK belgesi repo kökünde; npm audit 0 kritik."
+"G-21: Mobile Erişilebilirlik (WCAG AA) + Sesli Komut + Siri Shortcuts",Task,High,Abdussamed Ateş,faz5 mobile a11y,Mobile,Faz 5 - Test Erişilebilirlik & Optimizasyon,8,"İŞ TANIMI: Tüm interaktif elemanlarda accessibilityLabel + Hint + Role doğrulanır; checkbox/radio rolleri; Heading auto-focus + accessibilityLiveRegion='polite'; renk kontrast 4.5:1 (Stark); minimum 44×44pt. react-native-tts ile semptom açıklamalarını sesli okuma; @react-native-voice/voice ile semptom note'a Türkçe STT; iOS Siri Shortcuts: 'ilacımı aldım' donate.
+
+KABUL KRİTERİ: VoiceOver/TalkBack ile tüm akış tamamlanabilir; 'Bugünün Görevleri' screen reader'a '2/3 alındı' diye okunur; STT ile not kaydedilebilir; Siri Settings → Shortcuts'ta donate edilen kısayol görünür."
+"G-22: Production Docker Deployment + Yedekleme",Task,Highest,Nehir Bozbey,faz6 devops deploy,DevOps,Faz 6 - Deployment & Lansman,8,"İŞ TANIMI: docker-compose.prod.yml (postgres + backend + nginx + certbot + grafana). Postgres günlük pg_dump cron → S3 (KMS şifreli). Backend image GHCR'dan :latest pull; restart: unless-stopped. Secret yönetimi AWS Secrets Manager veya Hetzner panel env. CI'dan tetiklenen deploy.yml ile sunucuya SSH + docker compose pull + up.
+
+KABUL KRİTERİ: https://limitlesscare.app üretimde stabil; günlük yedek S3'e (30 gün retention); deploy 2dk altında; rollback prev tag pull ile yapılabiliyor."
+"G-23: API Dokümantasyonu (OpenAPI/Swagger) + Teknik Rapor",Task,High,Ahmet Efe,faz6 backend docs,Backend,Faz 6 - Deployment & Lansman,5,"İŞ TANIMI: zod-to-openapi ile route handler'lardaki Zod şemalarından OpenAPI 3.1 spec üretilir. swagger-ui-express ile /docs altında interaktif UI. README'ye stack şeması, kurulum, env, deploy talimatı. docs/teknik-rapor.md (hoca sunumu): mimari kararlar, KVKK, erişilebilirlik, ilaç uyum mantığı, e-posta ön atama, raporlama.
+
+KABUL KRİTERİ: Swagger UI tüm endpoint'leri ve şemaları gösterir; README'den sıfırdan kurulum yapılabiliyor; teknik rapor PDF'e çevrilebiliyor; ekip review onayladı."
+"G-24: iOS / Android Release Build + Smoke Test",Task,High,Abdussamed Ateş,faz6 mobile release,Mobile,Faz 6 - Deployment & Lansman,5,"İŞ TANIMI: Mobile API_BASE_URL production endpoint'e çevrilir. iOS: Xcode Archive → TestFlight (Apple Developer hesabı). Android: ./gradlew :app:assembleRelease imzalı APK. 14 adımlı smoke test (docs/verification.md) gerçek cihazda. notifee background task'ları gerçek cihazda doğrulanır.
+
+KABUL KRİTERİ: TestFlight build distributed; APK 5 farklı Android versiyonunda (12-16) hatasız yüklenip 14 adım test geçer; release notes hazır; verification.md adımları işaretlenmiş."

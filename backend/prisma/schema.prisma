@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DOCTOR
+  CAREGIVER
+  OWNER
+}
+
+enum DoctorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DiseaseCategory {
+  MENTAL_DEVELOPMENTAL
+  MENTAL_HEALTH
+  NEURO_PHYSICAL
+  SENSORY
+  CHRONIC
+}
+
+enum Severity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum AssignmentStatus {
+  PENDING_USER
+  ACTIVE
+  INACTIVE
+}
+
+enum DoseStatus {
+  PENDING
+  TAKEN_ON_TIME
+  TAKEN_LATE
+  MISSED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ReportFormat {
+  PDF
+  EXCEL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  doctor    DoctorProfile?
+  caregiver CaregiverProfile?
+
+  reviewedDoctors DoctorProfile[]   @relation("DoctorReviewer")
+  customDiseases  Disease[]         @relation("DiseaseCreator")
+  customSymptoms  Symptom[]         @relation("SymptomCreator")
+  prescriptions   Prescription[]    @relation("PrescriptionDoctor")
+  assignments     PatientDisease[]  @relation("AssignmentDoctor")
+  reports         Report[]          @relation("ReportDoctor")
+}
+
+model DoctorProfile {
+  userId          String       @id
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName        String
+  diplomaNumber   String       @unique
+  title           String
+  specialty       String
+  status          DoctorStatus @default(PENDING)
+  reviewedById    String?
+  reviewedBy      User?        @relation("DoctorReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
+}
+
+model CaregiverProfile {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName  String
+  gender    Gender
+  birthDate DateTime
+  createdAt DateTime @default(now())
+
+  metrics  PatientMetric[]
+  diseases PatientDisease[] @relation("AssignmentCaregiver")
+}
+
+model PatientMetric {
+  id          String           @id @default(cuid())
+  caregiverId String
+  caregiver   CaregiverProfile @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  heightCm    Float
+  weightKg    Float
+  recordedAt  DateTime         @default(now())
+
+  @@index([caregiverId, recordedAt])
+}
+
+model Disease {
+  id          String          @id @default(cuid())
+  name        String
+  category    DiseaseCategory
+  description String
+  iconKey     String?
+  isSystem    Boolean         @default(true)
+  createdById String?
+  createdBy   User?           @relation("DiseaseCreator", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  symptoms        Symptom[]
+  patientDiseases PatientDisease[]
+
+  @@unique([name, createdById])
+}
+
+model Symptom {
+  id          String   @id @default(cuid())
+  diseaseId   String
+  disease     Disease  @relation(fields: [diseaseId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  iconKey     String?
+  isSystem    Boolean  @default(true)
+  createdById String?
+  createdBy   User?    @relation("SymptomCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  logs SymptomLog[]
+
+  @@index([diseaseId])
+}
+
+model Medication {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  defaultUnit String
+  description String?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  prescriptions Prescription[]
+}
+
+model PatientDisease {
+  id             String            @id @default(cuid())
+  caregiverEmail String
+  caregiverId    String?
+  caregiver      CaregiverProfile? @relation("AssignmentCaregiver", fields: [caregiverId], references: [userId])
+  diseaseId      String
+  disease        Disease           @relation(fields: [diseaseId], references: [id])
+  doctorId       String
+  doctor         User              @relation("AssignmentDoctor", fields: [doctorId], references: [id])
+  status         AssignmentStatus  @default(PENDING_USER)
+  assignedAt     DateTime          @default(now())
+  activatedAt    DateTime?
+
+  symptomLogs   SymptomLog[]
+  prescriptions Prescription[]
+  reports       Report[]
+
+  @@index([caregiverEmail])
+  @@index([caregiverId])
+  @@index([doctorId])
+}
+
+model SymptomLog {
+  id               String         @id @default(cuid())
+  patientDiseaseId String
+  patientDisease   PatientDisease @relation(fields: [patientDiseaseId], references: [id], onDelete: Cascade)
+  symptomId        String
+  symptom          Symptom        @relation(fields: [symptomId], references: [id])
+  severity         Severity
+  loggedAt         DateTime       @default(now())
+  note             String?
+
+  @@index([patientDiseaseId, loggedAt])
+}
+
+model Prescription {
+  id               String         @id @default(cuid())
+  patientDiseaseId String
+  patientDisease   PatientDisease @relation(fields: [patientDiseaseId], references: [id], onDelete: Cascade)
+  medicationId     String
+  medication       Medication     @relation(fields: [medicationId], references: [id])
+  doseAmount       Float
+  doseUnit         String
+  scheduleTimes    String[]
+  instructions     String?
+  startsOn         DateTime
+  endsOn           DateTime?
+  doctorId         String
+  doctor           User           @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
+  createdAt        DateTime       @default(now())
+
+  doses DoseEvent[]
+
+  @@index([patientDiseaseId])
+}
+
+model DoseEvent {
+  id             String       @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  scheduledAt    DateTime
+  takenAt        DateTime?
+  status         DoseStatus   @default(PENDING)
+  delayMinutes   Int?
+  note           String?
+
+  @@unique([prescriptionId, scheduledAt])
+  @@index([prescriptionId, scheduledAt])
+}
+
+model Report {
+  id               String         @id @default(cuid())
+  doctorId         String
+  doctor           User           @relation("ReportDoctor", fields: [doctorId], references: [id])
+  caregiverId      String
+  patientDiseaseId String
+  patientDisease   PatientDisease @relation(fields: [patientDiseaseId], references: [id])
+  periodStart      DateTime
+  periodEnd        DateTime
+  format           ReportFormat
+  filePath         String
+  generatedAt      DateTime       @default(now())
+
+  @@index([doctorId])
+  @@index([caregiverId])
+}

@@ -1,0 +1,28 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+coverage/
+.vscode/
+.idea/
+
+# RN
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/local.properties
+
+# Backend
+backend/uploads/
+backend/prisma/migrations/dev.db*
+
+# Vite
+admin-web/dist/
