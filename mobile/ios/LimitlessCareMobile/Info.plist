@@ -29,12 +29,14 @@
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
-		<false/>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Yerel ağdaki uygulama sunucusuna bağlanmak için yerel ağ erişimi gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Acil durumda yakınlarınıza konumunuzu iletmek için.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Semptom ve not eklerken sesle giriş yapabilmeniz için mikrofona erişim gerekir.</string>
 	<key>NSSiriUsageDescription</key>
@@ -45,6 +47,7 @@
 	<array>
 		<string>com.limitlesscare.medication.taken</string>
 		<string>com.limitlesscare.symptom.log</string>
+		<string>com.limitlesscare.panic</string>
 	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>

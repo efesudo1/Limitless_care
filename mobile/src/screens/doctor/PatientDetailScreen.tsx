@@ -19,6 +19,11 @@ export function PatientDetailScreen({ route, navigation }: Props) {
     queryKey: ['timeline', patientDiseaseId],
     queryFn: () => doctorApi.timeline(patientDiseaseId),
   });
+  const { data: medicalCard } = useQuery({
+    queryKey: ['medical-card', patientDiseaseId],
+    queryFn: () => doctorApi.patientMedicalCard(patientDiseaseId),
+    enabled: !!patientDiseaseId,
+  });
 
   if (isLoading || !data) {
     return (
@@ -81,6 +86,30 @@ export function PatientDetailScreen({ route, navigation }: Props) {
         <Text style={[styles.v, { fontSize: 28, fontWeight: '700', color: colors.accent }]}>%{compliance}</Text>
       </Card>
 
+      {medicalCard?.medicalCard ? (
+        <Card accessibilityLabel="Tıbbi kart bilgileri">
+          <Text style={styles.k}>Tıbbi Kart</Text>
+          {medicalCard.medicalCard.bloodType ? (
+            <Text style={styles.v}>Kan grubu: {medicalCard.medicalCard.bloodType}</Text>
+          ) : null}
+          {medicalCard.medicalCard.allergies ? (
+            <Text style={styles.v}>Alerjiler: {medicalCard.medicalCard.allergies}</Text>
+          ) : null}
+          {medicalCard.medicalCard.chronicConditions ? (
+            <Text style={styles.v}>Kronik durumlar: {medicalCard.medicalCard.chronicConditions}</Text>
+          ) : null}
+          {medicalCard.medicalCard.medicalNotes ? (
+            <Text style={styles.v}>Notlar: {medicalCard.medicalCard.medicalNotes}</Text>
+          ) : null}
+          {!medicalCard.medicalCard.bloodType &&
+          !medicalCard.medicalCard.allergies &&
+          !medicalCard.medicalCard.chronicConditions &&
+          !medicalCard.medicalCard.medicalNotes ? (
+            <Text style={styles.v}>Hasta tıbbi kart bilgilerini henüz doldurmadı.</Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       <Card>
         <Text style={styles.k}>Semptom Şiddet Dağılımı</Text>
         <SeverityChart data={severityRows} caption="Bu hastalık için semptom şiddet dağılımı grafiği" />
@@ -120,6 +149,13 @@ export function PatientDetailScreen({ route, navigation }: Props) {
         label="Yeni Reçete Ekle"
         accessibilityHint="Bu hastalığa ilaç reçetesi ekler"
         onPress={() => navigation.navigate('PrescriptionForm', { patientDiseaseId })}
+      />
+      <View style={{ height: spacing.sm }} />
+      <PrimaryButton
+        variant="secondary"
+        label="Egzersiz Ata"
+        accessibilityHint="Hastaya fizik tedavi egzersiz planı atama ekranını açar"
+        onPress={() => navigation.navigate('AssignExercise', { patientDiseaseId })}
       />
     </Screen>
   );

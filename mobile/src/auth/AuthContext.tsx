@@ -4,13 +4,19 @@ import { storage } from './storage';
 
 export type Role = 'DOCTOR' | 'CAREGIVER' | 'OWNER';
 export type DoctorStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type DisabilityCategory = 'MENTAL' | 'PHYSICAL' | 'SENSORY' | 'CHRONIC';
 
 export type SessionUser = {
   id: string;
   email: string;
   role: Role;
   doctor?: { fullName: string; title: string; specialty: string; status: DoctorStatus };
-  caregiver?: { fullName: string; gender: string; birthDate: string };
+  caregiver?: {
+    fullName: string;
+    gender: string;
+    birthDate: string;
+    disabilityCategory?: DisabilityCategory | null;
+  };
 };
 
 type Ctx = {
@@ -64,7 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data } = await api.get('/me/profile');
       const next: SessionUser = {
         ...user,
-        caregiver: { fullName: data.fullName, gender: data.gender, birthDate: data.birthDate },
+        caregiver: {
+          fullName: data.fullName,
+          gender: data.gender,
+          birthDate: data.birthDate,
+          disabilityCategory: data.disabilityCategory ?? null,
+        },
       };
       setUser(next);
       await storage.setSession((await storage.getAccessToken()) ?? '', (await storage.getRefreshToken()) ?? '', next);

@@ -10,6 +10,7 @@ import { PrescriptionFormScreen } from '../screens/doctor/PrescriptionFormScreen
 import { ReportsScreen } from '../screens/doctor/ReportsScreen';
 import { DoctorProfileScreen } from '../screens/doctor/DoctorProfileScreen';
 import { CatalogManageScreen } from '../screens/doctor/CatalogManageScreen';
+import { AssignExerciseScreen } from '../screens/doctor/AssignExerciseScreen';
 
 export type DoctorStackParamList = {
   Tabs: undefined;
@@ -18,6 +19,7 @@ export type DoctorStackParamList = {
   PatientDetail: { patientDiseaseId: string };
   AssignDisease: { caregiverEmail?: string };
   PrescriptionForm: { patientDiseaseId: string };
+  AssignExercise: { patientDiseaseId: string };
   Reports: undefined;
   Profile: undefined;
   CatalogManage: undefined;
@@ -76,6 +78,11 @@ export function DoctorStack() {
         name="CatalogManage"
         component={CatalogManageScreen}
         options={{ title: 'Hastalık & Semptom Yönetimi' }}
+      />
+      <Stack.Screen
+        name="AssignExercise"
+        component={AssignExerciseScreen}
+        options={{ title: 'Egzersiz Ata' }}
       />
     </Stack.Navigator>
   );

@@ -1,13 +1,46 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import { storage } from '../auth/storage';
 
-// Geliştirme:
-// - Fiziksel cihazda test: Mac'in LAN/Hotspot IP'sini girin (`ipconfig getifaddr en0`).
-// - iOS simulator: 'http://localhost:4000' de çalışır.
-// - Android emulator: 'http://10.0.2.2:4000'.
-// LAN IP yazmak hem simulator hem fiziksel cihazda çalışır, en pratik seçim.
-export const API_BASE_URL = 'http://172.20.10.2:4000';
+const BACKEND_PORT = 4000;
+
+// Metro bundler hangi host'tan serve ediyorsa backend de aynı host'ta olur (Mac).
+// Wifi/hotspot/IP değişimi olsun, simulator olsun, fiziksel cihaz olsun
+// otomatik doğru host'u bulur.
+function inferApiBaseUrl(): string {
+  if (__DEV__) {
+    const scriptURL: string | undefined = (NativeModules as any).SourceCode?.scriptURL;
+    console.log('[api] Metro scriptURL =', scriptURL);
+    if (scriptURL) {
+      const match = scriptURL.match(/^https?:\/\/([^:/]+)(?::\d+)?\//);
+      if (match) {
+        const url = `http://${match[1]}:${BACKEND_PORT}`;
+        console.log('[api] API_BASE_URL =', url);
+        return url;
+      }
+    }
+    // Fallback: simulator/emulator/cihaz default'ları
+    // iOS fiziksel cihaz → Mac'in mDNS hostname'i (Bonjour ile resolve olur)
+    // iOS simulator → localhost
+    // Android emulator → 10.0.2.2
+    let fallback: string;
+    if (Platform.OS === 'android') {
+      fallback = `http://10.0.2.2:${BACKEND_PORT}`;
+    } else if ((Platform as any).constants?.systemName === 'iOS' || Platform.OS === 'ios') {
+      // Simulator'da localhost çalışır, fiziksel cihazda Mac hostname'i gerekli.
+      // İkisinde de hostname çalışır (simulator localhost'u zaten Mac'tir).
+      fallback = `http://Ahmet-MacBook-Air.local:${BACKEND_PORT}`;
+    } else {
+      fallback = `http://localhost:${BACKEND_PORT}`;
+    }
+    console.log('[api] API_BASE_URL fallback =', fallback);
+    return fallback;
+  }
+  // Production: ileride gerçek domain'e bağlanılır
+  return `http://localhost:${BACKEND_PORT}`;
+}
+
+export const API_BASE_URL = inferApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

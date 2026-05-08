@@ -146,6 +146,43 @@ router.get(
   })
 );
 
+router.get(
+  '/patients/:patientDiseaseId/medical-card',
+  asyncHandler(async (req, res) => {
+    const id = req.params.patientDiseaseId;
+    const pd = await prisma.patientDisease.findUnique({
+      where: { id },
+      include: {
+        caregiver: {
+          select: {
+            userId: true,
+            fullName: true,
+            bloodType: true,
+            allergies: true,
+            chronicConditions: true,
+            medicalNotes: true,
+          },
+        },
+      },
+    });
+    if (!pd) throw notFound('Atama bulunamadı');
+    if (pd.doctorId !== req.auth!.userId) throw forbidden();
+    if (!pd.caregiver) {
+      res.json({ caregiver: null, medicalCard: null });
+      return;
+    }
+    res.json({
+      caregiver: { fullName: pd.caregiver.fullName },
+      medicalCard: {
+        bloodType: pd.caregiver.bloodType,
+        allergies: pd.caregiver.allergies,
+        chronicConditions: pd.caregiver.chronicConditions,
+        medicalNotes: pd.caregiver.medicalNotes,
+      },
+    });
+  })
+);
+
 // ---------- Assignment ----------
 
 const assignmentSchema = z.object({
@@ -175,6 +212,9 @@ const prescriptionSchema = z.object({
   doseUnit: z.string().min(1),
   scheduleTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).min(1),
   instructions: z.string().optional(),
+  foodRequirement: z.enum(['ANY', 'BEFORE_MEAL', 'AFTER_MEAL', 'WITH_MEAL']).optional(),
+  stockCount: z.number().int().min(0).max(10000).optional(),
+  stockAlertThreshold: z.number().int().min(0).max(10000).optional(),
   startsOn: z.string().min(8),
   endsOn: z.string().min(8).optional(),
 });
@@ -195,6 +235,10 @@ router.post(
         doseUnit: data.doseUnit,
         scheduleTimes: data.scheduleTimes,
         instructions: data.instructions,
+        foodRequirement: data.foodRequirement ?? 'ANY',
+        stockCount: data.stockCount ?? null,
+        stockAlertThreshold: data.stockAlertThreshold ?? null,
+        lastStockUpdate: data.stockCount != null ? new Date() : null,
         startsOn: new Date(data.startsOn),
         endsOn: data.endsOn ? new Date(data.endsOn) : null,
         doctorId: req.auth!.userId,
@@ -210,6 +254,9 @@ const prescriptionPatchSchema = z.object({
   doseUnit: z.string().min(1).optional(),
   scheduleTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).min(1).optional(),
   instructions: z.string().optional(),
+  foodRequirement: z.enum(['ANY', 'BEFORE_MEAL', 'AFTER_MEAL', 'WITH_MEAL']).optional(),
+  stockCount: z.number().int().min(0).max(10000).nullable().optional(),
+  stockAlertThreshold: z.number().int().min(0).max(10000).nullable().optional(),
   endsOn: z.string().nullable().optional(),
 });
 
@@ -228,6 +275,10 @@ router.patch(
         doseUnit: data.doseUnit ?? undefined,
         scheduleTimes: data.scheduleTimes ?? undefined,
         instructions: data.instructions ?? undefined,
+        foodRequirement: data.foodRequirement ?? undefined,
+        stockCount: data.stockCount === undefined ? undefined : data.stockCount,
+        stockAlertThreshold: data.stockAlertThreshold === undefined ? undefined : data.stockAlertThreshold,
+        lastStockUpdate: data.stockCount != null ? new Date() : undefined,
         endsOn: data.endsOn === undefined ? undefined : data.endsOn ? new Date(data.endsOn) : null,
       },
     });

@@ -16,14 +16,25 @@ const Stack = createNativeStackNavigator<PublicStackParamList>();
 
 export function PublicStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true, headerTitleAlign: 'center' }}>
-      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Giriş Yap' }} />
-      <Stack.Screen name="RegisterDoctor" component={RegisterDoctorScreen} options={{ title: 'Doktor Kayıt' }} />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        headerTransparent: true,
+        headerTitle: '',
+        headerTintColor: '#118C8A',
+      }}
+    >
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: true }} />
+      <Stack.Screen
+        name="RegisterDoctor"
+        component={RegisterDoctorScreen}
+        options={{ headerShown: true }}
+      />
       <Stack.Screen
         name="RegisterCaregiver"
         component={RegisterCaregiverScreen}
-        options={{ title: 'Hasta Takip Kayıt' }}
+        options={{ headerShown: true }}
       />
     </Stack.Navigator>
   );

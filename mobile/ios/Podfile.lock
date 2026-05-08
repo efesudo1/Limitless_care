@@ -1362,6 +1362,8 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
+  - react-native-geolocation-service (5.3.1):
+    - React
   - react-native-safe-area-context (5.7.0):
     - hermes-engine
     - RCTRequired
@@ -1889,6 +1891,28 @@ PODS:
     - RNNotifee/NotifeeCore (= 9.1.8)
   - RNNotifee/NotifeeCore (9.1.8):
     - React-Core
+  - RNPermissions (5.5.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNScreens (4.24.0):
     - hermes-engine
     - RCTRequired
@@ -1982,6 +2006,7 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-geolocation-service (from `../node_modules/react-native-geolocation-service`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-voice (from `../node_modules/@react-native-voice/voice`)"
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2022,6 +2047,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNNotifee (from `../node_modules/@notifee/react-native`)"
+  - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSiriShortcuts (from `../node_modules/react-native-siri-shortcut`)
   - TextToSpeech (from `../node_modules/react-native-tts`)
@@ -2105,6 +2131,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-geolocation-service:
+    :path: "../node_modules/react-native-geolocation-service"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-voice:
@@ -2185,6 +2213,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-gesture-handler"
   RNNotifee:
     :path: "../node_modules/@notifee/react-native"
+  RNPermissions:
+    :path: "../node_modules/react-native-permissions"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSiriShortcuts:
@@ -2233,6 +2263,7 @@ SPEC CHECKSUMS:
   React-logger: ae9cf96fd8f8035f5dbd632f781ef741596a2993
   React-Mapbuffer: 95a7bb22f13705cabb2862a6b187a30bde4cf6e0
   React-microtasksnativemodule: 5fe728295b1a5ef95632dd97fb5a8a2b148c4c05
+  react-native-geolocation-service: 608e1da71a1ac31b4de64d9ef2815f697978c55b
   react-native-safe-area-context: a2325922b8594ddd27f98fb13437aec126be2502
   react-native-voice: f5e8eec2278451d0017eb6a30a6ccc726aca34e0
   React-NativeModulesApple: 902ad35a8aa6c13085cad3a19f87c5c752aa0115
@@ -2269,15 +2300,16 @@ SPEC CHECKSUMS:
   ReactCodegen: 97ed75bbf5f4a1113ba856658696d63d51289a22
   ReactCommon: 376f3a275bcf5e59a360e0b1762beb3bd41495ce
   ReactNativeDependencies: 68d4bfaaf67631a1147ea09b8a382466a4d533ec
-  RNCAsyncStorage: 0f84413588571e74ef9cff6e3b669346e3abf9cb
-  RNDateTimePicker: 9af099b92740503c215eb3be3217cf051392decf
+  RNCAsyncStorage: befd990a073ba5ce8a8fece5ca442182a4fb7a17
+  RNDateTimePicker: 9146eac1ce16519a050a32f1ee402c09383bdd54
   RNGestureHandler: 8f110d136971c0d720c3fe78dc352ccfce1cde9c
   RNNotifee: 4a6ee5c7deaf00e005050052d73ee6315dff7ec9
+  RNPermissions: 6b8a147eb8290ec016bfc8be0f7373043c2f7c2d
   RNScreens: 63cc2156368ac1a8239e9131103c2fef901fc381
   RNSiriShortcuts: 17f5bcb1322eb9e9387101110db1cdb6ed82707c
   TextToSpeech: 2b930ec3756afde499061f4f01ea895e1f75dccb
-  Yoga: df8920a8f8ca99996048f6aea23a529f44992eac
+  Yoga: 04bb4bfeb02c0000b940c1e6e89e856cd8de5a71
 
-PODFILE CHECKSUM: b0580c8c3c11ba588be1160298936f0cdc876c1e
+PODFILE CHECKSUM: 8a76a316bbcfd798abdfaae97886d41f8a6b10a0
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

@@ -99,9 +99,53 @@ export async function checkDose(params: {
   const status =
     delayMin <= ON_TIME_GRACE_MIN ? DoseStatus.TAKEN_ON_TIME : DoseStatus.TAKEN_LATE;
 
-  return prisma.doseEvent.update({
-    where: { id: event.id },
-    data: { status, takenAt: params.takenAt, delayMinutes: delayMin, note: params.note },
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.doseEvent.update({
+      where: { id: event.id },
+      data: { status, takenAt: params.takenAt, delayMinutes: delayMin, note: params.note },
+    });
+    let lowStockWarning: { prescriptionId: string; remaining: number; daysRemaining: number | null } | null = null;
+    if (event.prescription.stockCount != null && event.prescription.stockCount > 0) {
+      const next = Math.max(0, event.prescription.stockCount - 1);
+      await tx.prescription.update({
+        where: { id: event.prescription.id },
+        data: { stockCount: next, lastStockUpdate: new Date() },
+      });
+      const threshold = event.prescription.stockAlertThreshold ?? 5;
+      if (next <= threshold) {
+        const dailyDoses = Math.max(1, event.prescription.scheduleTimes.length);
+        lowStockWarning = {
+          prescriptionId: event.prescription.id,
+          remaining: next,
+          daysRemaining: dailyDoses > 0 ? Math.floor(next / dailyDoses) : null,
+        };
+      }
+    }
+    return { updated, lowStockWarning };
+  });
+
+  return { ...result.updated, lowStockWarning: result.lowStockWarning };
+}
+
+export async function refillStock(params: {
+  caregiverId: string;
+  prescriptionId: string;
+  addedCount: number;
+}) {
+  const prescription = await prisma.prescription.findUnique({
+    where: { id: params.prescriptionId },
+    include: { patientDisease: true },
+  });
+  if (!prescription) return null;
+  if (prescription.patientDisease.caregiverId !== params.caregiverId) return null;
+  const current = prescription.stockCount ?? 0;
+  return prisma.prescription.update({
+    where: { id: prescription.id },
+    data: {
+      stockCount: current + params.addedCount,
+      lastStockUpdate: new Date(),
+    },
+    select: { id: true, stockCount: true, stockAlertThreshold: true, lastStockUpdate: true },
   });
 }
 
@@ -146,6 +190,11 @@ export async function getToday(caregiverId: string) {
       doseAmount: p.doseAmount,
       doseUnit: p.doseUnit,
       instructions: p.instructions,
+      foodRequirement: p.foodRequirement,
+      stockCount: p.stockCount,
+      stockAlertThreshold: p.stockAlertThreshold,
+      lowStock:
+        p.stockCount != null && p.stockCount <= (p.stockAlertThreshold ?? 5),
       scheduleTimes: p.scheduleTimes,
       doses: p.doses,
     })),

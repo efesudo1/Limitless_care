@@ -26,3 +26,6 @@ backend/prisma/migrations/dev.db*
 
 # Vite
 admin-web/dist/
+
+# Claude Code local settings
+.claude/

@@ -56,14 +56,20 @@ export async function syncMedicationReminders(prescriptions: Prescription[]) {
           id,
           title: 'İlaç zamanı',
           body: `${p.medicationName} ${p.doseAmount} ${p.doseUnit} - saat ${time}`,
+          data: { kind: 'medication', prescriptionId: p.id, scheduledTime: time },
           android: {
             channelId: CHANNEL_ID,
             pressAction: { id: 'default' },
             smallIcon: 'ic_launcher',
+            actions: [
+              { title: 'Aldım', pressAction: { id: 'mark-taken' } },
+              { title: '15 dk ertele', pressAction: { id: 'snooze-15' } },
+            ],
           },
           ios: {
             sound: 'default',
             critical: false,
+            categoryId: 'medication',
           },
         },
         trigger

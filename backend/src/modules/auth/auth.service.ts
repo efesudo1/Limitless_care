@@ -1,4 +1,4 @@
-import { AssignmentStatus, Role } from '@prisma/client';
+import { AssignmentStatus, DisabilityCategory, Role } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { hashPassword, comparePassword } from '../../lib/password';
 import { signAccessToken, signRefreshToken } from '../../lib/jwt';
@@ -23,6 +23,7 @@ type CaregiverRegisterInput = {
   birthDate: string;
   heightCm: number;
   weightKg: number;
+  disabilityCategory?: DisabilityCategory;
 };
 
 export async function registerDoctor(input: DoctorRegisterInput) {
@@ -70,6 +71,7 @@ export async function registerCaregiver(input: CaregiverRegisterInput) {
             fullName: input.fullName,
             gender: input.gender,
             birthDate: new Date(input.birthDate),
+            disabilityCategory: input.disabilityCategory,
             metrics: {
               create: {
                 heightCm: input.heightCm,
@@ -127,6 +129,7 @@ export async function login(emailRaw: string, password: string) {
         fullName: user.caregiver.fullName,
         gender: user.caregiver.gender,
         birthDate: user.caregiver.birthDate,
+        disabilityCategory: user.caregiver.disabilityCategory,
       },
     },
   };

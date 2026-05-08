@@ -15,9 +15,16 @@ export function ReportsScreen() {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [weeklyPreview, setWeeklyPreview] = useState<any | null>(null);
 
   const { data: reports, isLoading } = useQuery({ queryKey: ['reports'], queryFn: reportsApi.list });
   const { data: patients } = useQuery({ queryKey: ['doctor-patients'], queryFn: doctorApi.patients });
+
+  const fetchWeekly = useMutation({
+    mutationFn: (patientDiseaseId: string) => reportsApi.weekly(patientDiseaseId),
+    onSuccess: (data) => setWeeklyPreview(data),
+    onError: (e: any) => setError(e?.message ?? 'Haftalık rapor alınamadı.'),
+  });
 
   const generate = useMutation({
     mutationFn: ({ patientDiseaseId, format }: { patientDiseaseId: string; format: 'PDF' | 'EXCEL' }) =>
@@ -90,9 +97,56 @@ export function ReportsScreen() {
                 </Text>
               </Pressable>
             </View>
+            <View style={{ height: spacing.sm }} />
+            <PrimaryButton
+              variant="secondary"
+              label="Haftalık Karne Görüntüle"
+              accessibilityHint="Son 7 gün için korelasyon analizi ve içgörüler"
+              onPress={() => fetchWeekly.mutate(d.id)}
+              loading={fetchWeekly.isPending && fetchWeekly.variables === d.id}
+            />
           </Card>
         ))
       )}
+
+      {weeklyPreview ? (
+        <Card accessibilityLabel="Haftalık Sağlık Karnesi">
+          <Text style={styles.name}>
+            Haftalık Karne — {weeklyPreview.disease?.name}
+            {weeklyPreview.caregiver?.fullName ? ` · ${weeklyPreview.caregiver.fullName}` : ''}
+          </Text>
+          <Text style={styles.meta}>
+            {new Date(weeklyPreview.period.start).toLocaleDateString('tr-TR')} -
+            {' '}
+            {new Date(weeklyPreview.period.end).toLocaleDateString('tr-TR')}
+          </Text>
+          <View style={{ height: spacing.sm }} />
+          <Text style={styles.meta}>İlaç Uyumu: %{weeklyPreview.compliance.percent}</Text>
+          <Text style={styles.meta}>Toplam Semptom Kaydı: {weeklyPreview.symptomLogs.length}</Text>
+
+          <Text style={[styles.section, { marginTop: spacing.sm }]} accessibilityRole="header">
+            İçgörüler
+          </Text>
+          {(weeklyPreview.correlations?.insights ?? []).map((ins: string, idx: number) => (
+            <Text key={idx} style={styles.insight}>
+              • {ins}
+            </Text>
+          ))}
+
+          <Text style={[styles.section, { marginTop: spacing.sm }]} accessibilityRole="header">
+            Haftanın Günleri (semptom)
+          </Text>
+          {Object.entries(weeklyPreview.correlations?.symptomByDayOfWeek ?? {}).map(([day, count]) => (
+            <Text key={day} style={styles.meta}>
+              {day}: {count as number}
+            </Text>
+          ))}
+
+          {weeklyPreview.correlations?.insights?.length ? null : null}
+          <View style={{ height: spacing.md }} />
+          <PrimaryButton variant="ghost" label="Kapat" onPress={() => setWeeklyPreview(null)} />
+        </Card>
+      ) : null}
 
       <Text style={styles.section} accessibilityRole="header">Geçmiş Raporlar</Text>
       {(reports ?? []).map((r: any) => (
@@ -125,4 +179,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   btnText: { ...typography.bodyBold },
+  insight: { ...typography.body, color: colors.textPrimary, marginTop: spacing.xs },
 });

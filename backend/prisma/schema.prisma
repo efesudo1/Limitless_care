@@ -27,6 +27,13 @@ enum DiseaseCategory {
   CHRONIC
 }
 
+enum DisabilityCategory {
+  MENTAL
+  PHYSICAL
+  SENSORY
+  CHRONIC
+}
+
 enum Severity {
   MILD
   MODERATE
@@ -55,6 +62,56 @@ enum Gender {
 enum ReportFormat {
   PDF
   EXCEL
+}
+
+enum EmergencyEventKind {
+  PANIC
+}
+
+enum FoodRequirement {
+  ANY
+  BEFORE_MEAL
+  AFTER_MEAL
+  WITH_MEAL
+}
+
+enum MoodKind {
+  HAPPY
+  CALM
+  ANXIOUS
+  SAD
+  ANGRY
+}
+
+enum BehaviorEventType {
+  TANTRUM
+  REPETITIVE
+  AGGRESSION
+  WITHDRAWAL
+  OTHER
+}
+
+enum SeizureType {
+  TONIC_CLONIC
+  ABSENCE
+  MYOCLONIC
+  FOCAL
+  OTHER
+}
+
+enum BodyPosition {
+  LEFT_SIDE
+  RIGHT_SIDE
+  SUPINE
+  PRONE
+  SITTING
+}
+
+enum PredictiveAlertKind {
+  LOW_STOCK
+  COMPLIANCE_DROP
+  SYMPTOM_SPIKE
+  SEIZURE_INCREASE
 }
 
 model User {
@@ -91,15 +148,170 @@ model DoctorProfile {
 }
 
 model CaregiverProfile {
-  userId    String   @id
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName  String
-  gender    Gender
-  birthDate DateTime
-  createdAt DateTime @default(now())
+  userId             String              @id
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName           String
+  gender             Gender
+  birthDate          DateTime
+  disabilityCategory DisabilityCategory?
+  bloodType          String?
+  allergies          String?
+  chronicConditions  String?
+  medicalNotes       String?
+  emergencyMessage   String?
+  createdAt          DateTime            @default(now())
 
-  metrics  PatientMetric[]
-  diseases PatientDisease[] @relation("AssignmentCaregiver")
+  metrics            PatientMetric[]
+  diseases           PatientDisease[]    @relation("AssignmentCaregiver")
+  emergencyContacts  EmergencyContact[]
+  emergencyEvents    EmergencyEvent[]
+  moodLogs           MoodLog[]
+  routineItems       RoutineItem[]
+  behaviorEvents     BehaviorEvent[]
+  exercisePlans      ExercisePlan[]
+  pressureSoreChecks PressureSoreCheck[]
+  seizureEvents      SeizureEvent[]
+}
+
+model MoodLog {
+  id          String           @id @default(cuid())
+  caregiverId String
+  caregiver   CaregiverProfile @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  mood        MoodKind
+  intensity   Int
+  note        String?
+  loggedAt    DateTime         @default(now())
+
+  @@index([caregiverId, loggedAt])
+}
+
+model RoutineItem {
+  id            String              @id @default(cuid())
+  caregiverId   String
+  caregiver     CaregiverProfile    @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  label         String
+  scheduleTimes String[]
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+
+  completions   RoutineCompletion[]
+
+  @@index([caregiverId, active])
+}
+
+model RoutineCompletion {
+  id            String      @id @default(cuid())
+  routineItemId String
+  routineItem   RoutineItem @relation(fields: [routineItemId], references: [id], onDelete: Cascade)
+  completedAt   DateTime    @default(now())
+  note          String?
+
+  @@index([routineItemId, completedAt])
+}
+
+model BehaviorEvent {
+  id           String            @id @default(cuid())
+  caregiverId  String
+  caregiver    CaregiverProfile  @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  type         BehaviorEventType
+  durationMin  Int?
+  trigger      String?
+  note         String?
+  occurredAt   DateTime          @default(now())
+
+  @@index([caregiverId, occurredAt])
+}
+
+model Exercise {
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  videoUrl    String?
+  durationMin Int
+  isSystem    Boolean         @default(true)
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  plans ExercisePlan[]
+}
+
+model ExercisePlan {
+  id                 String                @id @default(cuid())
+  caregiverId        String
+  caregiver          CaregiverProfile      @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  exerciseId         String
+  exercise           Exercise              @relation(fields: [exerciseId], references: [id])
+  scheduleTimes      String[]
+  assignedByDoctorId String?
+  active             Boolean               @default(true)
+  createdAt          DateTime              @default(now())
+
+  completions ExerciseCompletion[]
+
+  @@index([caregiverId, active])
+}
+
+model ExerciseCompletion {
+  id          String       @id @default(cuid())
+  planId      String
+  plan        ExercisePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  completedAt DateTime     @default(now())
+  note        String?
+
+  @@index([planId, completedAt])
+}
+
+model PressureSoreCheck {
+  id          String           @id @default(cuid())
+  caregiverId String
+  caregiver   CaregiverProfile @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  position    BodyPosition
+  checkedAt   DateTime         @default(now())
+  note        String?
+
+  @@index([caregiverId, checkedAt])
+}
+
+model SeizureEvent {
+  id              String           @id @default(cuid())
+  caregiverId     String
+  caregiver       CaregiverProfile @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  occurredAt      DateTime         @default(now())
+  durationSeconds Int
+  type            SeizureType
+  trigger         String?
+  postIctalNotes  String?
+  severity        Severity?
+
+  @@index([caregiverId, occurredAt])
+}
+
+model EmergencyContact {
+  id          String           @id @default(cuid())
+  caregiverId String
+  caregiver   CaregiverProfile @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  name        String
+  phone       String
+  relation    String
+  priority    Int              @default(1)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([caregiverId, priority])
+}
+
+model EmergencyEvent {
+  id                String             @id @default(cuid())
+  caregiverId       String
+  caregiver         CaregiverProfile   @relation(fields: [caregiverId], references: [userId], onDelete: Cascade)
+  triggeredAt       DateTime           @default(now())
+  kind              EmergencyEventKind @default(PANIC)
+  latitude          Float?
+  longitude         Float?
+  sentToContactIds  String[]
+  note              String?
+
+  @@index([caregiverId, triggeredAt])
 }
 
 model PatientMetric {
@@ -174,10 +386,27 @@ model PatientDisease {
   symptomLogs   SymptomLog[]
   prescriptions Prescription[]
   reports       Report[]
+  alerts        PredictiveAlert[]
 
   @@index([caregiverEmail])
   @@index([caregiverId])
   @@index([doctorId])
+}
+
+model PredictiveAlert {
+  id               String              @id @default(cuid())
+  patientDiseaseId String
+  patientDisease   PatientDisease      @relation(fields: [patientDiseaseId], references: [id], onDelete: Cascade)
+  kind             PredictiveAlertKind
+  payload          Json
+  severity         Severity            @default(MODERATE)
+  createdAt        DateTime            @default(now())
+  dedupeKey        String
+  readByDoctor     Boolean             @default(false)
+  readByCaregiver  Boolean             @default(false)
+
+  @@unique([patientDiseaseId, dedupeKey])
+  @@index([patientDiseaseId, createdAt])
 }
 
 model SymptomLog {
@@ -194,20 +423,24 @@ model SymptomLog {
 }
 
 model Prescription {
-  id               String         @id @default(cuid())
-  patientDiseaseId String
-  patientDisease   PatientDisease @relation(fields: [patientDiseaseId], references: [id], onDelete: Cascade)
-  medicationId     String
-  medication       Medication     @relation(fields: [medicationId], references: [id])
-  doseAmount       Float
-  doseUnit         String
-  scheduleTimes    String[]
-  instructions     String?
-  startsOn         DateTime
-  endsOn           DateTime?
-  doctorId         String
-  doctor           User           @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
-  createdAt        DateTime       @default(now())
+  id                  String           @id @default(cuid())
+  patientDiseaseId    String
+  patientDisease      PatientDisease   @relation(fields: [patientDiseaseId], references: [id], onDelete: Cascade)
+  medicationId        String
+  medication          Medication       @relation(fields: [medicationId], references: [id])
+  doseAmount          Float
+  doseUnit            String
+  scheduleTimes       String[]
+  instructions        String?
+  foodRequirement     FoodRequirement  @default(ANY)
+  stockCount          Int?
+  stockAlertThreshold Int?
+  lastStockUpdate     DateTime?
+  startsOn            DateTime
+  endsOn              DateTime?
+  doctorId            String
+  doctor              User             @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
+  createdAt           DateTime         @default(now())
 
   doses DoseEvent[]
 

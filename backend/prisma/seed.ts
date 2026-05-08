@@ -9,6 +9,7 @@ import { NEURO_PHYSICAL_DISEASES } from './data/diseases-neuro-physical';
 import { SENSORY_DISEASES } from './data/diseases-sensory';
 import { CHRONIC_DISEASES } from './data/diseases-chronic';
 import { MEDICATIONS } from './data/medications';
+import { EXERCISES } from './data/exercises';
 import { SeedDisease } from './data/types';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -97,11 +98,34 @@ async function seedDiseases() {
   );
 }
 
+async function seedExercises() {
+  let added = 0;
+  for (const ex of EXERCISES) {
+    const existing = await prisma.exercise.findFirst({
+      where: { name: ex.name, isSystem: true },
+    });
+    if (!existing) {
+      await prisma.exercise.create({
+        data: {
+          name: ex.name,
+          description: ex.description,
+          videoUrl: ex.videoUrl,
+          durationMin: ex.durationMin,
+          isSystem: true,
+        },
+      });
+      added++;
+    }
+  }
+  console.log(`[seed] exercises: +${added} (toplam ${EXERCISES.length})`);
+}
+
 async function main() {
   console.log('[seed] başlıyor...');
   await seedOwner();
   await seedMedications();
   await seedDiseases();
+  await seedExercises();
   console.log('[seed] tamamlandı');
 }
 

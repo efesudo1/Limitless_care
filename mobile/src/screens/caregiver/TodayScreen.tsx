@@ -1,5 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  RefreshControl,
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  TextInput,
+  Alert,
+} from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Card } from '../../components/Card';
 import { Heading } from '../../components/Heading';
@@ -11,6 +22,15 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CaregiverStackParamList } from '../../navigation/CaregiverStack';
 import { syncMedicationReminders } from '../../notifications/scheduler';
+import { PanicButton } from '../../components/PanicButton';
+import { AlertBanner } from '../../components/AlertBanner';
+import { speak } from '../../voice';
+import {
+  donateLogSymptomShortcut,
+  donateMedicationTakenShortcut,
+  donatePanicShortcut,
+} from '../../siri/shortcuts';
+import { useAccessibility } from '../../theme/AccessibilityContext';
 
 type Nav = NativeStackNavigationProp<CaregiverStackParamList>;
 
@@ -21,10 +41,113 @@ type DoseEvent = {
   status: 'PENDING' | 'TAKEN_ON_TIME' | 'TAKEN_LATE' | 'MISSED';
 };
 
+type FoodReq = 'ANY' | 'BEFORE_MEAL' | 'AFTER_MEAL' | 'WITH_MEAL';
+const FOOD_LABELS: Record<FoodReq, string> = {
+  ANY: '',
+  BEFORE_MEAL: 'Yemekten önce',
+  AFTER_MEAL: 'Yemekten sonra',
+  WITH_MEAL: 'Yemekle',
+};
+
+type ShortcutDef = {
+  route: keyof CaregiverStackParamList;
+  label: string;
+  icon: string;
+  hint: string;
+};
+
+const CATEGORY_SHORTCUTS: Record<string, ShortcutDef[]> = {
+  MENTAL: [
+    { route: 'MoodLog', label: 'Duygu Durumu', icon: '😊', hint: 'Bugünkü duygunuzu kaydet' },
+    { route: 'Routine', label: 'Rutinler', icon: '📋', hint: 'Günlük rutinlerinizi takip edin' },
+    { route: 'BehaviorEvents', label: 'Davranış', icon: '🌀', hint: 'Davranış olayı kaydet' },
+  ],
+  PHYSICAL: [
+    { route: 'ExercisePlan', label: 'Egzersizler', icon: '🏋️', hint: 'Bugünkü egzersizleri görüntüle' },
+    { route: 'PressureSore', label: 'Pozisyon', icon: '🛏️', hint: 'Pozisyon değiştirme kaydı' },
+  ],
+  CHRONIC: [
+    { route: 'SeizureLog', label: 'Nöbet Kaydı', icon: '⚡', hint: 'Yeni nöbet bilgisi gir' },
+    { route: 'SeizureStats', label: 'İstatistik', icon: '📊', hint: 'Nöbet sıklığını ve dağılımı gör' },
+  ],
+  SENSORY: [
+    {
+      route: 'AccessibilitySettings',
+      label: 'Erişilebilirlik',
+      icon: '🔆',
+      hint: 'Yüksek kontrast, yazı boyutu ve sesli okuma ayarları',
+    },
+  ],
+};
+
+function CategoryShortcuts({
+  category,
+  navigation,
+}: {
+  category: 'MENTAL' | 'PHYSICAL' | 'SENSORY' | 'CHRONIC' | null;
+  navigation: Nav;
+}) {
+  if (!category) return null;
+  const shortcuts = CATEGORY_SHORTCUTS[category] ?? [];
+  if (!shortcuts.length) return null;
+  return (
+    <View>
+      <Text
+        style={{
+          ...typography.h2,
+          color: colors.textPrimary,
+          marginTop: spacing.lg,
+          marginBottom: spacing.sm,
+        }}
+        accessibilityRole="header"
+      >
+        Kategoriye Özel
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {shortcuts.map((s) => (
+          <Pressable
+            key={s.route as string}
+            onPress={() => navigation.navigate(s.route as never)}
+            accessibilityRole="button"
+            accessibilityLabel={s.label}
+            accessibilityHint={s.hint}
+            style={{
+              flexBasis: '48%',
+              backgroundColor: colors.surface,
+              borderRadius: radius.md,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              minHeight: TOUCH_MIN + 30,
+              alignItems: 'flex-start',
+            }}
+          >
+            <Text style={{ fontSize: 28 }} accessibilityElementsHidden importantForAccessibility="no">
+              {s.icon}
+            </Text>
+            <Text style={{ ...typography.bodyBold, color: colors.textPrimary, marginTop: spacing.xs }}>
+              {s.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type LowStockItem = {
+  prescriptionId: string;
+  medicationName: string;
+  remaining: number;
+  daysRemaining: number | null;
+};
+
 export function TodayScreen() {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const { prefs } = useAccessibility();
   const qc = useQueryClient();
+  const announcedRef = React.useRef(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['today'],
@@ -36,7 +159,16 @@ export function TodayScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['today'] }),
   });
 
-  // İlaç hatırlatma bildirimlerini senkronla
+  const refillMutation = useMutation({
+    mutationFn: ({ id, addedCount }: { id: string; addedCount: number }) =>
+      caregiverApi.refillStock(id, addedCount),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['today'] }),
+  });
+
+  const [refillFor, setRefillFor] = useState<LowStockItem | null>(null);
+  const [refillAmount, setRefillAmount] = useState('');
+
+  // İlaç hatırlatma bildirimlerini senkronla + Siri donations
   React.useEffect(() => {
     if (!data) return;
     const prescriptions = data.flatMap((d: any) =>
@@ -49,7 +181,63 @@ export function TodayScreen() {
       }))
     );
     syncMedicationReminders(prescriptions).catch(() => undefined);
+    // Siri Shortcuts donation
+    prescriptions.forEach((p: any) => {
+      donateMedicationTakenShortcut(p.id, p.medicationName).catch(() => undefined);
+    });
+    donateLogSymptomShortcut().catch(() => undefined);
+    donatePanicShortcut().catch(() => undefined);
   }, [data]);
+
+  const allDoses: Array<
+    DoseEvent & { medicationName: string; doseAmount: number; doseUnit: string; foodRequirement: FoodReq }
+  > =
+    (data ?? []).flatMap((d: any) =>
+      d.prescriptions.flatMap((p: any) =>
+        (p.doses as DoseEvent[]).map((dose) => ({
+          ...dose,
+          medicationName: p.medication.name,
+          doseAmount: p.doseAmount,
+          doseUnit: p.doseUnit,
+          foodRequirement: (p.foodRequirement ?? 'ANY') as FoodReq,
+        }))
+      )
+    );
+  const taken = allDoses.filter((d) => d.status === 'TAKEN_ON_TIME' || d.status === 'TAKEN_LATE').length;
+
+  const lowStockList: LowStockItem[] = (data ?? []).flatMap((d: any) =>
+    d.prescriptions
+      .filter((p: any) => p.lowStock && p.stockCount != null)
+      .map((p: any) => {
+        const dailyDoses = Math.max(1, p.scheduleTimes.length);
+        return {
+          prescriptionId: p.id,
+          medicationName: p.medication.name,
+          remaining: p.stockCount as number,
+          daysRemaining: Math.floor((p.stockCount as number) / dailyDoses),
+        };
+      })
+  );
+
+  const summaryText = React.useMemo(() => {
+    const remaining = allDoses.length - taken;
+    const next = allDoses.find((d) => d.status === 'PENDING');
+    const nextStr = next
+      ? `Sıradaki ${next.medicationName} saat ${new Date(next.scheduledAt).toLocaleTimeString('tr-TR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}.`
+      : '';
+    return `Bugün ${allDoses.length} ilacınız var. ${taken} tanesini aldınız. ${remaining} bekleniyor. ${nextStr}`.trim();
+  }, [allDoses, taken]);
+
+  React.useEffect(() => {
+    if (!data) return;
+    if (!prefs.autoSpeakOnScreenEnter) return;
+    if (announcedRef.current) return;
+    announcedRef.current = true;
+    speak(summaryText).catch(() => undefined);
+  }, [data, prefs.autoSpeakOnScreenEnter, summaryText]);
 
   if (isLoading) {
     return (
@@ -59,26 +247,59 @@ export function TodayScreen() {
     );
   }
 
-  const allDoses: Array<DoseEvent & { medicationName: string; doseAmount: number; doseUnit: string }> =
-    (data ?? []).flatMap((d: any) =>
-      d.prescriptions.flatMap((p: any) =>
-        (p.doses as DoseEvent[]).map((dose) => ({
-          ...dose,
-          medicationName: p.medication.name,
-          doseAmount: p.doseAmount,
-          doseUnit: p.doseUnit,
-        }))
-      )
-    );
-  const taken = allDoses.filter((d) => d.status === 'TAKEN_ON_TIME' || d.status === 'TAKEN_LATE').length;
-
   return (
     <Screen
       scroll={false}
       accessibilityLabel="Bugünün görevleri ekranı"
       contentStyle={{ padding: spacing.lg }}
     >
-      <Heading title={`Merhaba ${user?.caregiver?.fullName?.split(' ')[0] ?? ''}`} subtitle="Bugünün Görevleri" />
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Heading
+            title={`Merhaba ${user?.caregiver?.fullName?.split(' ')[0] ?? ''}`}
+            subtitle="Bugünün Görevleri"
+          />
+        </View>
+        <Pressable
+          onPress={() => speak(summaryText)}
+          accessibilityRole="button"
+          accessibilityLabel="Günün özetini sesli oku"
+          accessibilityHint="Bugün alınan ve bekleyen ilaçları sesli okur"
+          hitSlop={12}
+          style={styles.speakBtn}
+        >
+          <Text style={styles.speakIcon} accessibilityElementsHidden importantForAccessibility="no">
+            🔊
+          </Text>
+        </Pressable>
+      </View>
+
+      <AlertBanner audience="caregiver" />
+
+      {lowStockList.length > 0 ? (
+        <View style={styles.lowStockBanner} accessibilityLiveRegion="polite">
+          <Text style={styles.lowStockTitle} allowFontScaling maxFontSizeMultiplier={1.6}>
+            Stok azalıyor
+          </Text>
+          {lowStockList.map((it) => (
+            <Pressable
+              key={it.prescriptionId}
+              onPress={() => {
+                setRefillFor(it);
+                setRefillAmount('');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${it.medicationName} stoğu ${it.remaining} adet kaldı, yaklaşık ${it.daysRemaining} gün. Stok eklemek için dokunun.`}
+              style={styles.lowStockRow}
+            >
+              <Text style={styles.lowStockText} allowFontScaling maxFontSizeMultiplier={1.6}>
+                {it.medicationName}: {it.remaining} adet (~{it.daysRemaining} gün)
+              </Text>
+              <Text style={styles.lowStockAdd}>+ Stok Ekle</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <Text style={styles.section} accessibilityRole="header">İlaç Görevleri</Text>
       {allDoses.length === 0 ? (
@@ -111,7 +332,10 @@ export function TodayScreen() {
                   <Text style={styles.medName} allowFontScaling maxFontSizeMultiplier={1.6}>
                     {item.medicationName} {item.doseAmount} {item.doseUnit}
                   </Text>
-                  <Text style={styles.medTime} allowFontScaling maxFontSizeMultiplier={1.6}>{time}</Text>
+                  <Text style={styles.medTime} allowFontScaling maxFontSizeMultiplier={1.6}>
+                    {time}
+                    {FOOD_LABELS[item.foodRequirement] ? ` · ${FOOD_LABELS[item.foodRequirement]}` : ''}
+                  </Text>
                 </View>
                 <View
                   style={[styles.tick, isTaken && styles.tickOn, isMissed && styles.tickMissed]}
@@ -135,6 +359,11 @@ export function TodayScreen() {
         />
       )}
 
+      <CategoryShortcuts
+        category={user?.caregiver?.disabilityCategory ?? null}
+        navigation={navigation}
+      />
+
       <Text style={styles.section} accessibilityRole="header">Atanan Hastalıklar</Text>
       <View style={styles.diseaseGrid}>
         {(data ?? []).map((d: any) => (
@@ -155,6 +384,72 @@ export function TodayScreen() {
           </Pressable>
         ))}
       </View>
+
+      <PanicButton userName={user?.caregiver?.fullName} />
+
+      <Modal
+        visible={!!refillFor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRefillFor(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard} accessibilityViewIsModal>
+            <Text style={styles.modalTitle} allowFontScaling maxFontSizeMultiplier={1.6}>
+              Stok Ekle
+            </Text>
+            <Text style={styles.modalSub} allowFontScaling maxFontSizeMultiplier={1.6}>
+              {refillFor?.medicationName} ({refillFor?.remaining} kaldı)
+            </Text>
+            <TextInput
+              keyboardType="numeric"
+              value={refillAmount}
+              onChangeText={(v) => setRefillAmount(v.replace(/[^0-9]/g, ''))}
+              placeholder="Eklenen miktar"
+              placeholderTextColor={colors.textMuted}
+              style={styles.modalInput}
+              accessibilityLabel="Eklenen miktar"
+              accessibilityHint="Aldığınız yeni stok adetini girin"
+            />
+            <View style={styles.modalRow}>
+              <Pressable
+                onPress={() => setRefillFor(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Vazgeç"
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+              >
+                <Text style={styles.modalBtnGhostText}>Vazgeç</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const n = Number(refillAmount);
+                  if (!n || !refillFor) {
+                    Alert.alert('Geçersiz', 'Eklenen miktar 1 veya üzeri olmalı.');
+                    return;
+                  }
+                  refillMutation.mutate(
+                    { id: refillFor.prescriptionId, addedCount: n },
+                    {
+                      onSuccess: () => {
+                        setRefillFor(null);
+                        setRefillAmount('');
+                      },
+                      onError: (e: any) => Alert.alert('Hata', e?.message ?? 'Eklenemedi'),
+                    }
+                  );
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Stok ekle ve kaydet"
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+              >
+                <Text style={styles.modalBtnPrimaryText}>
+                  {refillMutation.isPending ? 'Kaydediliyor…' : 'Kaydet'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -204,4 +499,75 @@ const styles = StyleSheet.create({
   },
   diseaseName: { ...typography.bodyBold, color: colors.textPrimary, marginBottom: spacing.xs },
   diseaseMeta: { ...typography.caption, color: colors.textSecondary },
+  lowStockBanner: {
+    backgroundColor: colors.warningBg,
+    borderColor: colors.warning,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  lowStockTitle: { ...typography.bodyBold, color: colors.warning, marginBottom: spacing.xs },
+  lowStockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    minHeight: TOUCH_MIN,
+  },
+  lowStockText: { ...typography.body, color: colors.textPrimary, flex: 1 },
+  lowStockAdd: { ...typography.bodyBold, color: colors.warning, marginLeft: spacing.md },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  modalTitle: { ...typography.h1, color: colors.textPrimary, marginBottom: spacing.xs },
+  modalSub: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
+  modalInput: {
+    minHeight: TOUCH_MIN + 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    ...typography.body,
+    marginBottom: spacing.md,
+  },
+  modalRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'flex-end' },
+  modalBtn: {
+    minHeight: TOUCH_MIN,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
+  modalBtnGhostText: { ...typography.bodyBold, color: colors.textPrimary },
+  modalBtnPrimary: { backgroundColor: colors.primary },
+  modalBtnPrimaryText: { ...typography.bodyBold, color: colors.textOnPrimary },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 0 },
+  speakBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  speakIcon: { fontSize: 22 },
 });

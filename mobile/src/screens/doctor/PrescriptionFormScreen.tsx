@@ -16,6 +16,14 @@ type Props = NativeStackScreenProps<DoctorStackParamList, 'PrescriptionForm'>;
 
 const PRESET_TIMES = ['08:00', '12:00', '14:00', '18:00', '20:00', '22:00'];
 
+type FoodReq = 'ANY' | 'BEFORE_MEAL' | 'AFTER_MEAL' | 'WITH_MEAL';
+const FOOD_OPTIONS: { key: FoodReq; label: string; description: string }[] = [
+  { key: 'ANY', label: 'Fark etmez', description: 'Aç-tok kısıtı yok' },
+  { key: 'BEFORE_MEAL', label: 'Yemekten önce', description: 'Yemekten 30 dk önce' },
+  { key: 'AFTER_MEAL', label: 'Yemekten sonra', description: 'Yemekten sonra' },
+  { key: 'WITH_MEAL', label: 'Yemekle', description: 'Yemek esnasında' },
+];
+
 export function PrescriptionFormScreen({ route, navigation }: Props) {
   const qc = useQueryClient();
   const { patientDiseaseId } = route.params;
@@ -24,6 +32,9 @@ export function PrescriptionFormScreen({ route, navigation }: Props) {
   const [doseUnit, setDoseUnit] = useState('mg');
   const [times, setTimes] = useState<string[]>([]);
   const [instructions, setInstructions] = useState('');
+  const [foodRequirement, setFoodRequirement] = useState<FoodReq>('ANY');
+  const [stockCount, setStockCount] = useState('');
+  const [stockAlertThreshold, setStockAlertThreshold] = useState('');
   const [startsOn, setStartsOn] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +49,9 @@ export function PrescriptionFormScreen({ route, navigation }: Props) {
         doseUnit,
         scheduleTimes: times,
         instructions: instructions || undefined,
+        foodRequirement,
+        stockCount: stockCount ? Number(stockCount) : undefined,
+        stockAlertThreshold: stockAlertThreshold ? Number(stockAlertThreshold) : undefined,
         startsOn,
       }),
     onSuccess: () => {
@@ -121,6 +135,48 @@ export function PrescriptionFormScreen({ route, navigation }: Props) {
             </Pressable>
           );
         })}
+      </View>
+
+      <Text style={styles.section}>Aç / Tok</Text>
+      <View style={styles.timeRow} accessibilityRole="radiogroup" accessibilityLabel="Aç tok seçimi">
+        {FOOD_OPTIONS.map((f) => {
+          const active = foodRequirement === f.key;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFoodRequirement(f.key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active, checked: active }}
+              accessibilityLabel={`${f.label}: ${f.description}`}
+              style={[styles.time, active && styles.timeActive]}
+            >
+              <Text style={[styles.timeText, active && styles.timeTextActive]}>{f.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={styles.section}>Stok Takibi (opsiyonel)</Text>
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <TextField
+            label="Başlangıç stoğu"
+            value={stockCount}
+            onChangeText={(v) => setStockCount(v.replace(/[^0-9]/g, ''))}
+            keyboardType="numeric"
+            hint="Kutu / hap sayısı"
+          />
+        </View>
+        <View style={{ width: spacing.md }} />
+        <View style={{ flex: 1 }}>
+          <TextField
+            label="Uyarı eşiği"
+            value={stockAlertThreshold}
+            onChangeText={(v) => setStockAlertThreshold(v.replace(/[^0-9]/g, ''))}
+            keyboardType="numeric"
+            hint="Alt sınır (varsayılan 5)"
+          />
+        </View>
       </View>
 
       <DateField

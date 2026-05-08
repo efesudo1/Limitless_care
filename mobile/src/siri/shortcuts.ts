@@ -51,3 +51,20 @@ export async function donateLogSymptomShortcut() {
     /* ignore */
   }
 }
+
+export async function donatePanicShortcut() {
+  if (Platform.OS !== 'ios' || !SiriShortcutsModule?.donateShortcut) return;
+  try {
+    await SiriShortcutsModule.donateShortcut({
+      activityType: 'com.limitlesscare.panic',
+      title: 'Acil durum',
+      keywords: ['panik', 'acil', 'yardım'],
+      persistentIdentifier: 'panic-trigger',
+      isEligibleForSearch: true,
+      isEligibleForPrediction: true,
+      suggestedInvocationPhrase: 'Acil durum',
+    });
+  } catch {
+    /* ignore */
+  }
+}

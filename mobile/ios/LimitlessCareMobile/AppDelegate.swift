@@ -40,9 +40,11 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    // Direkt Metro URL'i — RCTBundleURLProvider'ın LAN tarama davranışını bypass eder.
+    // mDNS hostname iPhone tarafında Bonjour ile resolve olur (aynı wifi şart).
+    return URL(string: "http://Ahmet-MacBook-Air.local:8081/index.bundle?platform=ios&dev=true&minify=false")
 #else
-    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
 }

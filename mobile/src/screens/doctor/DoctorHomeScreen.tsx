@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen } from '../../components/Screen';
 import { Heading } from '../../components/Heading';
 import { Card } from '../../components/Card';
+import { AlertBanner } from '../../components/AlertBanner';
 import { doctorApi } from '../../api/endpoints';
 import { useAuth } from '../../auth/AuthContext';
 import { colors, radius, spacing, TOUCH_MIN, typography } from '../../theme';
@@ -32,6 +33,8 @@ export function DoctorHomeScreen() {
   return (
     <Screen accessibilityLabel="Doktor ana ekranı">
       <Heading title={`Hoş Geldiniz, Dr. ${user?.doctor?.fullName?.split(' ')[0] ?? ''}`} subtitle="Bugünkü hastalarınızın genel durumu" />
+
+      <AlertBanner audience="doctor" />
 
       <View style={styles.statRow}>
         <View style={[styles.stat, { backgroundColor: '#E0F4F3' }]} accessibilityLabel={`Toplam hasta ${totalPatients}`}>

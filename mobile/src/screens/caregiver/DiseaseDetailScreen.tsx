@@ -7,6 +7,8 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { caregiverApi } from '../../api/endpoints';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, radius, spacing, TOUCH_MIN, typography } from '../../theme';
+import { startVoiceInput, stopVoiceInput } from '../../voice';
+import { parseSymptomSeverity } from '../../voice/parseSymptom';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CaregiverStackParamList } from '../../navigation/CaregiverStack';
 
@@ -22,6 +24,31 @@ export function DiseaseDetailScreen({ route }: Props) {
   const { patientDiseaseId } = route.params;
   const qc = useQueryClient();
   const [pendingSelections, setPendingSelections] = useState<Record<string, 'MILD' | 'MODERATE' | 'SEVERE'>>({});
+  const [voiceListening, setVoiceListening] = useState<string | null>(null);
+
+  const startVoice = async (symptomId: string) => {
+    setVoiceListening(symptomId);
+    await startVoiceInput(
+      (text) => {
+        const sev = parseSymptomSeverity(text);
+        if (sev) {
+          setPendingSelections((prev) => ({ ...prev, [symptomId]: sev }));
+          Alert.alert(
+            'Önerilen şiddet',
+            `"${text}" → ${sev === 'MILD' ? 'Hafif' : sev === 'MODERATE' ? 'Orta' : 'Ağır'} olarak işaretlendi. İsterseniz değiştirebilirsiniz.`
+          );
+        } else {
+          Alert.alert('Anlaşılamadı', `Söylenen: "${text}". Lütfen "hafif", "orta" ya da "şiddetli" gibi bir kelime ekleyin.`);
+        }
+        setVoiceListening(null);
+        stopVoiceInput().catch(() => undefined);
+      },
+      (msg) => {
+        Alert.alert('Sesli giriş', msg);
+        setVoiceListening(null);
+      }
+    );
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['today'],
@@ -66,8 +93,23 @@ export function DiseaseDetailScreen({ route }: Props) {
         const selected = pendingSelections[s.id];
         return (
           <Card key={s.id} accessibilityLabel={`${s.name} semptomu`}>
-            <Text style={styles.symptomName} allowFontScaling maxFontSizeMultiplier={1.6}>{s.name}</Text>
-            <Text style={styles.symptomDesc} allowFontScaling maxFontSizeMultiplier={1.6}>{s.description}</Text>
+            <View style={styles.symptomHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.symptomName} allowFontScaling maxFontSizeMultiplier={1.6}>{s.name}</Text>
+                <Text style={styles.symptomDesc} allowFontScaling maxFontSizeMultiplier={1.6}>{s.description}</Text>
+              </View>
+              <Pressable
+                onPress={() => startVoice(s.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${s.name} için sesli şiddet önerisi`}
+                accessibilityHint="Mikrofon açılır; hafif, orta veya şiddetli gibi bir kelime söyleyin"
+                accessibilityState={{ busy: voiceListening === s.id }}
+                hitSlop={12}
+                style={[styles.micBtn, voiceListening === s.id && styles.micBtnActive]}
+              >
+                <Text style={styles.micIcon}>🎤</Text>
+              </Pressable>
+            </View>
             <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={`${s.name} şiddeti`}>
               {SEVERITIES.map((sev) => {
                 const active = selected === sev.key;
@@ -170,4 +212,17 @@ const styles = StyleSheet.create({
   },
   doseTime: { ...typography.body, color: colors.textPrimary },
   doseStatus: { ...typography.bodyBold, color: colors.accent },
+  symptomHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
+  micBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  micIcon: { fontSize: 20 },
 });

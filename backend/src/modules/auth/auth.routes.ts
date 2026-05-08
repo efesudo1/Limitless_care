@@ -25,6 +25,7 @@ const caregiverSchema = z.object({
   birthDate: z.string().min(8),
   heightCm: z.number().positive().max(260),
   weightKg: z.number().positive().max(400),
+  disabilityCategory: z.enum(['MENTAL', 'PHYSICAL', 'SENSORY', 'CHRONIC']).optional(),
 });
 
 const loginSchema = z.object({

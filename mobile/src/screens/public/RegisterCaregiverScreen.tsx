@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { Alert, View, Text, Pressable, StyleSheet } from 'react-native';
-import { Screen } from '../../components/Screen';
-import { Heading } from '../../components/Heading';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextField } from '../../components/TextField';
 import { DateField } from '../../components/DateField';
-import { PrimaryButton } from '../../components/PrimaryButton';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { authApi } from '../../api/endpoints';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, radius, spacing, TOUCH_MIN } from '../../theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { PublicStackParamList } from '../../navigation/PublicStack';
 
@@ -78,78 +85,159 @@ export function RegisterCaregiverScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen accessibilityLabel="Hasta takip kayıt ekranı">
-      <Heading title="Hasta Takip Kayıt Ol" />
-      <ErrorBanner message={error} />
-      <TextField label="Ad Soyad" value={form.fullName} onChangeText={set('fullName')} hint="Hasta tam adı" />
-      <TextField
-        label="E-posta"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={form.email}
-        onChangeText={set('email')}
-        hint="Doktorunuzun atama yapacağı adres"
-      />
-      <TextField label="Şifre" password value={form.password} onChangeText={set('password')} hint="En az 8 karakter" />
+    <SafeAreaView style={styles.safe} accessibilityLabel="Hasta takip kayıt ekranı">
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.brand} accessibilityRole="header" allowFontScaling maxFontSizeMultiplier={1.4}>
+              Limitless Care
+            </Text>
+            <Text style={styles.title} allowFontScaling maxFontSizeMultiplier={1.4}>
+              Hasta Takip{'\n'}Kayıt Ol
+            </Text>
+            <Text style={styles.subtitle} allowFontScaling maxFontSizeMultiplier={1.6}>
+              Sağlığınızı takip etmek için hesap oluşturun
+            </Text>
+          </View>
 
-      <Text style={styles.label} accessibilityRole="text">Cinsiyet</Text>
-      <View style={styles.row} accessibilityRole="radiogroup">
-        {GENDERS.map((g) => {
-          const selected = form.gender === g.key;
-          return (
-            <Pressable
-              key={g.key}
-              onPress={() => set('gender')(g.key)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={g.label}
-              style={[styles.chip, selected && styles.chipSelected]}
-              hitSlop={8}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{g.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+          <ErrorBanner message={error} />
 
-      <DateField
-        label="Doğum Tarihi"
-        value={form.birthDate}
-        onChange={set('birthDate')}
-        hint="Tıbbi takip için yaş hesabında kullanılır"
-        maximumDate={new Date()}
-      />
-      <TextField
-        label="Boy (cm)"
-        value={form.heightCm}
-        onChangeText={set('heightCm')}
-        hint="Santimetre cinsinden"
-        keyboardType="numeric"
-      />
-      <TextField
-        label="Kilo (kg)"
-        value={form.weightKg}
-        onChangeText={set('weightKg')}
-        hint="Kilogram cinsinden"
-        keyboardType="numeric"
-      />
-      <PrimaryButton label="Kayıt Ol" loading={loading} onPress={submit} />
-    </Screen>
+          <TextField label="Ad Soyad" value={form.fullName} onChangeText={set('fullName')} hint="Hasta tam adı" />
+          <TextField
+            label="E-posta"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={form.email}
+            onChangeText={set('email')}
+            hint="Doktorunuzun atama yapacağı adres"
+          />
+          <TextField label="Şifre" password value={form.password} onChangeText={set('password')} hint="En az 8 karakter" />
+
+          <Text style={styles.fieldLabel} accessibilityRole="text">Cinsiyet</Text>
+          <View style={styles.row} accessibilityRole="radiogroup">
+            {GENDERS.map((g) => {
+              const selected = form.gender === g.key;
+              return (
+                <Pressable
+                  key={g.key}
+                  onPress={() => set('gender')(g.key)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={g.label}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{g.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <DateField
+            label="Doğum Tarihi"
+            value={form.birthDate}
+            onChange={set('birthDate')}
+            hint="Tıbbi takip için yaş hesabında kullanılır"
+            maximumDate={new Date()}
+          />
+          <TextField
+            label="Boy (cm)"
+            value={form.heightCm}
+            onChangeText={set('heightCm')}
+            hint="Santimetre cinsinden"
+            keyboardType="numeric"
+          />
+          <TextField
+            label="Kilo (kg)"
+            value={form.weightKg}
+            onChangeText={set('weightKg')}
+            hint="Kilogram cinsinden"
+            keyboardType="numeric"
+          />
+
+          <Pressable
+            onPress={submit}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Kayıt Ol"
+            accessibilityState={{ disabled: loading, busy: loading }}
+            style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed, loading && styles.disabled]}
+          >
+            <Text style={styles.btnPrimaryText} allowFontScaling maxFontSizeMultiplier={1.4}>
+              {loading ? 'Kaydediliyor…' : 'Kayıt Ol'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => navigation.navigate('Login')}
+            accessibilityRole="link"
+            accessibilityLabel="Zaten hesabım var, giriş yap"
+            hitSlop={12}
+            style={styles.backLink}
+          >
+            <Text style={styles.backText} allowFontScaling maxFontSizeMultiplier={1.6}>
+              Zaten hesabınız var mı? <Text style={styles.backTextStrong}>Giriş Yap</Text>
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  label: { ...typography.bodyBold, color: colors.textPrimary, marginBottom: spacing.xs },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  header: { marginBottom: spacing.xl },
+  brand: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
+  },
+  title: { fontSize: 36, fontWeight: '800', lineHeight: 42, color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 15, color: colors.textSecondary, marginTop: spacing.sm },
+  fieldLabel: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.sm, marginTop: spacing.xs },
   row: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   chip: {
+    minHeight: TOUCH_MIN,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radius.full,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+    justifyContent: 'center',
   },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { ...typography.body, color: colors.textPrimary },
-  chipTextSelected: { color: colors.textOnPrimary, fontWeight: '600' },
+  chipText: { fontSize: 15, color: colors.textPrimary, fontWeight: '500' },
+  chipTextSelected: { color: colors.textOnPrimary, fontWeight: '700' },
+  btnPrimary: {
+    minHeight: TOUCH_MIN + 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnPrimaryText: { color: colors.textOnPrimary, fontSize: 17, fontWeight: '600' },
+  pressed: { opacity: 0.85 },
+  disabled: { opacity: 0.6 },
+  backLink: { alignItems: 'center', paddingVertical: spacing.lg, marginTop: spacing.sm },
+  backText: { fontSize: 15, color: colors.textSecondary },
+  backTextStrong: { color: colors.primary, fontWeight: '700' },
 });

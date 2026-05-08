@@ -9,6 +9,7 @@ import { asyncHandler } from '../../middleware/error';
 import { config } from '../../config';
 import { forbidden, notFound } from '../../lib/http';
 import { buildReportData } from './aggregator';
+import { buildWeeklyReport } from './correlations';
 import { generatePdf } from './pdf';
 import { generateExcel } from './excel';
 
@@ -70,6 +71,25 @@ router.post(
     });
 
     res.status(201).json(created);
+  })
+);
+
+const weeklySchema = z.object({
+  patientDiseaseId: z.string().min(1),
+  weekStart: z.string().min(8).optional(),
+});
+
+router.post(
+  '/weekly',
+  requireApprovedDoctor,
+  asyncHandler(async (req, res) => {
+    const data = weeklySchema.parse(req.body);
+    const pd = await prisma.patientDisease.findUnique({ where: { id: data.patientDiseaseId } });
+    if (!pd) throw notFound('Atama bulunamadı');
+    if (pd.doctorId !== req.auth!.userId) throw forbidden();
+    const weekStart = data.weekStart ? new Date(data.weekStart) : undefined;
+    const payload = await buildWeeklyReport(pd.id, weekStart);
+    res.json(payload);
   })
 );
 
